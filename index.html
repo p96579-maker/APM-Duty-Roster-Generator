@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>APM Duty Roster Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- SheetJS for Excel export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      margin: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .controls {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    label {
+      font-weight: bold;
+      margin-right: 8px;
+    }
+    input[type="date"] {
+      padding: 4px 8px;
+      font-size: 14px;
+    }
+    button {
+      padding: 6px 12px;
+      margin: 0 5px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .availability {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 20px;
+    }
+    .availability h2 {
+      margin-top: 0;
+      font-size: 18px;
+    }
+    .role-group {
+      margin-bottom: 8px;
+    }
+    .role-group-title {
+      font-weight: bold;
+      margin-right: 6px;
+      display: inline-block;
+      min-width: 110px;
+    }
+    .role-group label {
+      font-weight: normal;
+      margin-right: 10px;
+      white-space: nowrap;
+    }
+    .tables-wrapper {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+    table {
+      border-collapse: collapse;
+      min-width: 600px;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 4px 8px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    thead tr:nth-child(1) th {
+      font-weight: bold;
+      text-align: center;
+      background-color: #f0f0f0;
+    }
+    thead tr:nth-child(2) th {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>APM Duty Roster Generator</h1>
+
+  <div class="controls">
+    <label for="startDate">Start Date (第一日):</label>
+    <input type="date" id="startDate" />
+    <button id="generateBtn">Generate Roster</button>
+    <button id="downloadBtn" disabled>Download Excel</button>
+  </div>
+
+  <div class="availability">
+    <h2>Staff Availability（呢個 cycle 完全唔返 / 放長假先取消勾）</h2>
+    <p style="margin-top:4px;margin-bottom:8px;">
+      - 如果淨係 1～2 日放假，建議照樣保留勾選，<b>之後喺下面排班表直接改 cell</b>。<br>
+      - 只係「成個 cycle 都唔返」先取消勾選。<br>
+      - 修改 cell 時，下拉選單只會顯示「當日未被分配」嘅同 role 人手。<br>
+      - 新規則：<b>MF / WH / EH：Day 第一日揀中嘅 3 個人，會用喺 4 日 DAY 入面輪流當值，但同一個人喺同一個崗位唔會連續超過 2 日</b>。
+    </p>
+    <div class="role-group">
+      <span class="role-group-title">BCR:</span>
+      <span id="bcrBox"></span>
+    </div>
+    <div class="role-group">
+      <span class="role-group-title">EH / WH / MF:</span>
+      <span id="ehwhmfBox"></span>
+    </div>
+    <div class="role-group">
+      <span class="role-group-title">DRIVER:</span>
+      <span id="driverBox"></span>
+    </div>
+    <div class="role-group">
+      <span class="role-group-title">CCR_CONTROLLER:</span>
+      <span id="controllerBox"></span>
+    </div>
+    <div class="role-group">
+      <span class="role-group-title">PM_LEADER (DAY):</span>
+      <span id="pmLeaderBox"></span>
+    </div>
+  </div>
+
+  <div class="tables-wrapper">
+    <!-- DAY table -->
+    <table id="dayTable">
+      <thead>
+        <tr>
+          <th colspan="7">DAY</th>
+        </tr>
+        <tr>
+          <th>DATE</th>
+          <th>DRIVER</th>
+          <th>MF</th>
+          <th>WH</th>
+          <th>EH</th>
+          <th>BCR</th>
+          <th>PM_LEADER</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <!-- NIGHT table -->
+    <table id="nightTable">
+      <thead>
+        <tr>
+          <th colspan="7">NIGHT</th>
+        </tr>
+        <tr>
+          <th>DATE</th>
+          <th>DRIVER</th>
+          <th>MF</th>
+          <th>WH</th>
+          <th>EH</th>
+          <th>BCR</th>
+          <th>CCR_CONTROLLER</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    // --- BASE STAFF LISTS ---
+
+    const BCR_LIST = [
+      "YK LAU",
+      "KC CHAN",
+      "WH LO",
+      "PF HO",
+      "TF TAM",
+      "CL KWONG",
+      "MT CHU"
+    ];
+
+    const EH_WH_MF_LIST = [
+      "WW NG",
+      "WH LO",
+      "PH LAO",
+      "TF TAM",
+      "YC WONG",
+      "PF HO",
+      "CL KWONG",
+      "YK LAU"
+    ];
+
+    const DRIVER_LIST = [
+      "KC CHAN",
+      "YT SIU",
+      "MT CHU"
+    ];
+
+    const CONTROLLER_LIST = [
+      "KC CHAN",
+      "YT SIU",
+      "WW NG",
+      "WH LO",
+      "PH LAO",
+      "CK YUEN",
+      "YC WONG"
+    ];
+
+    const PM_LEADER_LIST = [
+      "WW NG",
+      "WH LO",
+      "PH LAO",
+      "YC WONG",
+      "PF HO",
+      "CL KWONG",
+      "YK LAU"
+    ];
+
+    // for editable cells
+    let CURRENT_OPTIONS = {};
+
+    // --- UTILITIES ---
+
+    function addDays(date, days) {
+      const result = new Date(date);
+      result.setDate(result.getDate() + days);
+      return result;
+    }
+
+    function formatDate(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function shuffle(array) {
+      const arr = array.slice();
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function buildTwoDaySequence(list, totalWorkingDays) {
+      const result = new Array(totalWorkingDays);
+      let staffIndex = 0;
+      let w = 0;
+      while (w < totalWorkingDays) {
+        const name = list[staffIndex];
+        result[w] = name;
+        if (w + 1 < totalWorkingDays) {
+          result[w + 1] = name;
+        }
+        w += 2;
+        staffIndex = (staffIndex + 1) % list.length;
+      }
+      return result;
+    }
+
+    function tableToAoA(tableElement) {
+      const aoa = [];
+      const rows = tableElement.querySelectorAll("tr");
+      rows.forEach(row => {
+        const rowData = [];
+        row.querySelectorAll("th, td").forEach(cell => {
+          rowData.push(cell.innerText);
+        });
+        aoa.push(rowData);
+      });
+      return aoa;
+    }
+
+    // working day index (0..7) -> calendar day offset
+    function workingIndexToOffset(wi) {
+      if (wi <= 3) return wi;      // 4 DAY
+      return wi + 2;              // +2 to skip OFF days
+    }
+
+    function createCheckboxes(containerId, list, groupName) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+      list.forEach(name => {
+        const label = document.createElement("label");
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.name = groupName;
+        cb.value = name;
+        cb.checked = true;
+        label.appendChild(cb);
+        label.append(" " + name);
+        container.appendChild(label);
+      });
+    }
+
+    function getSelected(groupName) {
+      return Array.from(document.querySelectorAll('input[name="' + groupName + '"]:checked')).map(cb => cb.value);
+    }
+
+    // make table cells editable by dropdown
+    function makeEditable(tableId, headerRoles) {
+      const table = document.getElementById(tableId);
+      const rows = table.querySelectorAll("tbody tr");
+      rows.forEach(row => {
+        const cells = row.querySelectorAll("td");
+        cells.forEach((cell, colIdx) => {
+          const roleName = headerRoles[colIdx];
+          if (!roleName || roleName === "DATE") return;
+
+          cell.style.cursor = "pointer";
+
+          cell.addEventListener("click", () => {
+            const roleKey =
+              roleName === "MF" || roleName === "WH" || roleName === "EH"
+                ? "EHWHMF"
+                : roleName;
+
+            const baseOptions = CURRENT_OPTIONS[roleKey] || [];
+            if (!baseOptions.length) return;
+
+            const current = cell.innerText.trim();
+
+            // names already used on this row (same day)
+            const usedNames = Array.from(row.querySelectorAll("td"))
+              .map(td => td.innerText.trim())
+              .filter(n => n && n !== "(空白)");
+
+            // allow current value even if used (for no-change),
+            // otherwise only allow not-used-today names
+            const options = baseOptions.filter(
+              name => name === current || !usedNames.includes(name)
+            );
+
+            const select = document.createElement("select");
+
+            const emptyOpt = document.createElement("option");
+            emptyOpt.value = "";
+            emptyOpt.text = "(空白)";
+            if (!current) emptyOpt.selected = true;
+            select.appendChild(emptyOpt);
+
+            options.forEach(name => {
+              const opt = document.createElement("option");
+              opt.value = name;
+              opt.text = name;
+              if (name === current) opt.selected = true;
+              select.appendChild(opt);
+            });
+
+            cell.innerHTML = "";
+            cell.appendChild(select);
+            select.focus();
+
+            const finalize = () => {
+              const value = select.value;
+              cell.innerHTML = value;
+            };
+
+            select.addEventListener("blur", finalize);
+            select.addEventListener("change", finalize);
+          });
+        });
+      });
+    }
+
+    // --- MAIN LOGIC ---
+
+    function generateRoster() {
+      const startInput = document.getElementById("startDate").value;
+      const dayTbody = document.querySelector("#dayTable tbody");
+      const nightTbody = document.querySelector("#nightTable tbody");
+
+      dayTbody.innerHTML = "";
+      nightTbody.innerHTML = "";
+
+      if (!startInput) {
+        alert("請先選擇 Start Date.");
+        return;
+      }
+
+      const bcrList = getSelected("bcr");
+      const ehwhmfList = getSelected("ehwhmf");
+      const driverList = getSelected("driver");
+      const controllerList = getSelected("controller");
+      const pmLeaderList = getSelected("pmleader");
+
+      if (bcrList.length === 0) {
+        alert("BCR 沒有人可用，請至少保留一位。");
+        return;
+      }
+      if (ehwhmfList.length < 3) {
+        alert("EH/WH/MF 可用人數少於 3，人手不足。");
+        return;
+      }
+      if (driverList.length === 0) {
+        alert("DRIVER 沒有人可用，請至少保留一位。");
+        return;
+      }
+      if (controllerList.length === 0) {
+        alert("CCR_CONTROLLER 沒有人可用，請至少保留一位。");
+        return;
+      }
+      if (pmLeaderList.length === 0) {
+        alert("PM_LEADER 沒有人可用，請至少保留一位。");
+        return;
+      }
+
+      const startDate = new Date(startInput);
+      const TOTAL_WORKING_DAYS = 8; // 4 DAY + 2 OFF + 4 NIGHT
+
+      const bcrSeq = buildTwoDaySequence(bcrList, TOTAL_WORKING_DAYS);
+      const driverSeq = buildTwoDaySequence(driverList, TOTAL_WORKING_DAYS);
+      const controllerSeq = buildTwoDaySequence(controllerList, 4);
+
+      const pmLeader = pmLeaderList[Math.floor(Math.random() * pmLeaderList.length)];
+
+      // ---- 決定 Day block 用邊 3 個人做 MF/WH/EH（4 日入面輪流用） ----
+      const dayBcrSet = new Set(bcrSeq.slice(0, 4)); // BCR in 4 day shifts
+      const forbiddenDay = new Set(dayBcrSet);
+      forbiddenDay.add(pmLeader);
+
+      let dayPool = ehwhmfList.filter(name => !forbiddenDay.has(name));
+      if (dayPool.length < 3) {
+        // 如太少，放寬到只避開 4 日 BCR
+        dayPool = ehwhmfList.filter(name => !dayBcrSet.has(name));
+      }
+      if (dayPool.length < 3) {
+        // 再唔夠就全部照用
+        dayPool = ehwhmfList.slice();
+      }
+
+      const tripleDayPeople = shuffle(dayPool).slice(0, 3); // 第一日揀出 3 個，4 日都用呢 3 個輪流
+
+      // ---- Night block 用既 MF/WH/EH set，仍然用大 pool，但避開同 pair 的 Day 3 人 ----
+      const nightTriples = [];
+      const MAX_TRIES = 30;
+
+      for (let pair = 0; pair < 4; pair++) {
+        const nightIndex = 4 + pair;  // 4..7
+        const bcrNight = bcrSeq[nightIndex];
+        const controller = controllerSeq[pair];
+
+        let nightCandidates = ehwhmfList.filter(
+          name =>
+            name !== bcrNight &&
+            name !== controller &&
+            !tripleDayPeople.includes(name)
+        );
+        if (nightCandidates.length < 3) {
+          nightCandidates = ehwhmfList.filter(
+            name => name !== bcrNight && name !== controller
+          );
+        }
+
+        let nightTriple = [];
+        for (let t = 0; t < MAX_TRIES; t++) {
+          const shufN = shuffle(nightCandidates);
+          const trialN = shufN.slice(0, 3);
+          if (pair === 0) {
+            nightTriple = trialN;
+            break;
+          } else {
+            const prevNightTriple = nightTriples[pair - 1];
+            const hasOverlapN = trialN.some(name => prevNightTriple.includes(name));
+            if (!hasOverlapN) {
+              nightTriple = trialN;
+              break;
+            } else {
+              nightTriple = trialN; // fallback
+            }
+          }
+        }
+        nightTriples[pair] = nightTriple;
+      }
+
+      // ---- 4 個 Day：tripleDayPeople 做 MF/WH/EH，並且同一人同一崗位唔會連續超過 2 日 ----
+      const lastRolesDay = {}; // name -> {role, streak}
+
+      function assignDayRolesForIndex(dayIdx) {
+        const roles = ["EH", "WH", "MF"]; // index 0->EH,1->WH,2->MF
+        let chosenPerm = null;
+
+        for (let t = 0; t < MAX_TRIES; t++) {
+          const perm = shuffle(tripleDayPeople); // perm[0]=>EH, [1]=>WH, [2]=>MF
+          let ok = true;
+          for (let i = 0; i < 3; i++) {
+            const name = perm[i];
+            const role = roles[i];
+            const prev = lastRolesDay[name];
+            if (prev && prev.role === role && prev.streak >= 2) {
+              ok = false;
+              break;
+            }
+          }
+          if (ok) {
+            chosenPerm = perm;
+            break;
+          } else {
+            chosenPerm = perm; // fallback
+          }
+        }
+
+        // 更新 streak
+        const rolesMap = {};
+        for (let i = 0; i < 3; i++) {
+          const name = chosenPerm[i];
+          const role = roles[i];
+          rolesMap[role] = name;
+
+          const prev = lastRolesDay[name];
+          if (prev && prev.role === role) {
+            lastRolesDay[name] = { role: role, streak: prev.streak + 1 };
+          } else {
+            lastRolesDay[name] = { role: role, streak: 1 };
+          }
+        }
+        return rolesMap; // {EH:..., WH:..., MF:...}
+      }
+
+      // ---- 填 DAY table ----
+      for (let w = 0; w < 4; w++) {
+        const calendarOffset = workingIndexToOffset(w);
+        const date = addDays(startDate, calendarOffset);
+        const dateStr = formatDate(date);
+
+        const rolesMap = assignDayRolesForIndex(w);
+        const eh = rolesMap["EH"];
+        const wh = rolesMap["WH"];
+        const mf = rolesMap["MF"];
+
+        const driver = driverSeq[w];
+        const bcr = bcrSeq[w];
+
+        const tr = document.createElement("tr");
+        const cells = [
+          dateStr,
+          driver,
+          mf,
+          wh,
+          eh,
+          bcr,
+          pmLeader
+        ];
+        cells.forEach(text => {
+          const td = document.createElement("td");
+          td.innerText = text;
+          tr.appendChild(td);
+        });
+        dayTbody.appendChild(tr);
+      }
+
+      // ---- 填 NIGHT table（沿用 nightTriples）----
+      for (let i = 0; i < 4; i++) {
+        const workingIndex = 4 + i;
+        const calendarOffset = workingIndexToOffset(workingIndex);
+        const date = addDays(startDate, calendarOffset);
+        const dateStr = formatDate(date);
+
+        const tripleForNight = shuffle(nightTriples[i]);
+        const [eh, wh, mf] = tripleForNight;
+
+        const driver = driverSeq[workingIndex];
+        const bcr = bcrSeq[workingIndex];
+        const controller = controllerSeq[i];
+
+        const tr = document.createElement("tr");
+        const cells = [
+          dateStr,
+          driver,
+          mf,
+          wh,
+          eh,
+          bcr,
+          controller
+        ];
+        cells.forEach(text => {
+          const td = document.createElement("td");
+          td.innerText = text;
+          tr.appendChild(td);
+        });
+        nightTbody.appendChild(tr);
+      }
+
+      CURRENT_OPTIONS = {
+        DRIVER: driverList,
+        EHWHMF: ehwhmfList,
+        BCR: bcrList,
+        PM_LEADER: pmLeaderList,
+        CCR_CONTROLLER: controllerList
+      };
+
+      makeEditable("dayTable", ["DATE","DRIVER","MF","WH","EH","BCR","PM_LEADER"]);
+      makeEditable("nightTable", ["DATE","DRIVER","MF","WH","EH","BCR","CCR_CONTROLLER"]);
+
+      document.getElementById("downloadBtn").disabled = false;
+    }
+
+    function downloadExcel() {
+      const dayTable = document.getElementById("dayTable");
+      const nightTable = document.getElementById("nightTable");
+
+      const wb = XLSX.utils.book_new();
+
+      const dayAoA = tableToAoA(dayTable);
+      const nightAoA = tableToAoA(nightTable);
+
+      const daySheet = XLSX.utils.aoa_to_sheet(dayAoA);
+      const nightSheet = XLSX.utils.aoa_to_sheet(nightAoA);
+
+      XLSX.utils.book_append_sheet(wb, daySheet, "DAY");
+      XLSX.utils.book_append_sheet(wb, nightSheet, "NIGHT");
+
+      XLSX.writeFile(wb, "APM_duty_roster.xlsx");
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      createCheckboxes("bcrBox", BCR_LIST, "bcr");
+      createCheckboxes("ehwhmfBox", EH_WH_MF_LIST, "ehwhmf");
+      createCheckboxes("driverBox", DRIVER_LIST, "driver");
+      createCheckboxes("controllerBox", CONTROLLER_LIST, "controller");
+      createCheckboxes("pmLeaderBox", PM_LEADER_LIST, "pmleader");
+    });
+
+    document.getElementById("generateBtn").addEventListener("click", generateRoster);
+    document.getElementById("downloadBtn").addEventListener("click", downloadExcel);
+  </script>
+</body>
+</html>
