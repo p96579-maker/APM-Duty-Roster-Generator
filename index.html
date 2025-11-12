@@ -1,69 +1,89 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-HK">
 <head>
 <meta charset="UTF-8" />
-<title>APM Duty Roster Generator — v27-es5b</title>
+<title>APM Duty Roster Generator — v27-es5c-mobile</title>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-  body { font-family: Arial, Helvetica, sans-serif; margin: 20px; }
-  .ver { text-align:center; font-size:12px; color:#666; margin-top:-8px; margin-bottom:8px; }
-  h1 { text-align: center; margin-bottom: 4px; }
-  .controls { margin-bottom: 12px; text-align: center; }
-  label { font-weight: bold; margin-right: 8px; }
-  input[type="date"] { padding: 4px 8px; font-size: 14px; margin-right: 6px; }
-  button { padding: 6px 12px; margin: 0 5px; font-size: 14px; cursor: pointer; }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
-  .availability { border: 1px solid #ccc; padding: 10px; margin-bottom: 12px; }
-  .availability h2 { margin-top: 0; font-size: 18px; }
-  .role-group { margin-bottom: 8px; }
-  .role-group-title { font-weight: bold; margin-right: 6px; display: inline-block; min-width: 180px; }
-  .role-group label { font-weight: normal; margin-right: 10px; white-space: nowrap; }
-  table { border-collapse: collapse; min-width: 760px; margin: 0 auto; border: 1px solid #000; }
-  th, td { border: 1px solid #000; padding: 6px 10px; text-align: center; white-space: nowrap; }
-  thead tr:nth-child(1) th { font-weight: bold; text-align: center; background-color: #f0f0f0; }
-  thead tr:nth-child(2) th { font-weight: bold; }
-  .card-table { margin-bottom: 16px; box-shadow: 0 0 6px rgba(0,0,0,0.08); border-radius: 6px; overflow: hidden; }
-  #resultWrap { display: flex; justify-content: center; }
-  #resultCol { flex: 1; max-width: 980px; }
-  #resultTitle { text-align: center; margin-bottom: 8px; }
+  :root { --fg:#111; --muted:#666; --border:#ddd; --bg:#fff; --primary:#0b5cff; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,'PingFang HK','Noto Sans CJK HK',sans-serif; margin: 12px; color:var(--fg); background:var(--bg); }
+  h1 { text-align:center; margin:6px 0 2px; font-size: clamp(18px, 5vw, 28px); }
+  .ver { text-align:center; font-size:12px; color:var(--muted); margin-bottom:8px; }
+  .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:center; margin:8px auto 12px; }
+  .controls label { font-weight:600; }
+  .chip { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--border); padding:6px 10px; border-radius:999px; }
+  .controls input[type="date"]{ padding:8px 10px; border:1px solid var(--border); border-radius:10px; font-size:16px; }
+  button { padding:10px 14px; border-radius:12px; border:1px solid var(--border); background:#f7f7f7; font-size:16px; }
+  button.primary { border-color: var(--primary); background: var(--primary); color:#fff; }
+  button:disabled { opacity:.5; }
+  .availability { border:1px solid var(--border); border-radius:12px; padding:10px; margin-bottom:12px; }
+  .availability h2 { font-size:16px; margin:0 0 8px; }
+  .role-group { margin:8px 0; }
+  .role-group-title { display:block; font-weight:700; margin-bottom:6px; }
+  .pillbox { display:flex; flex-wrap:wrap; gap:8px 10px; }
+  .pillbox label { border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-weight:500; }
+  .pillbox input[type="checkbox"]{ inline-size:18px; block-size:18px; vertical-align:middle; }
+  .section-title { text-align:center; font-size: clamp(16px, 4.5vw, 24px); margin:12px 0; }
+  .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:10px; border:1px solid var(--border); background:#fff; }
+  table { border-collapse:collapse; min-width:720px; width:100%; }
+  th, td { border:1px solid #000; padding:10px; text-align:center; white-space:nowrap; font-size:14px; }
+  thead tr:nth-child(1) th { background:#f3f3f3; }
+  .sticky-head thead th { position:sticky; top:0; background:#f3f3f3; z-index:2; }
+  @media (max-width: 640px){
+    .availability { padding:8px; }
+    .role-group-title { font-size:14px; }
+    th, td { padding:8px 6px; font-size:13px; }
+    table { min-width:640px; }
+  }
 </style>
 </head>
 <body>
   <h1>APM Duty Roster Generator</h1>
-  <div class="ver">v27-es5b • 2025-11-12 05:23</div>
+  <div class="ver">v27-es5c-mobile • 2025-11-12 05:49</div>
 
   <div class="controls">
-    <span style="margin-right:10px;">只出一組：</span>
-    <label><input type="radio" name="groupType" value="DAY" checked /> DAY 組</label>
-    <label><input type="radio" name="groupType" value="NIGHT" /> NIGHT 組</label>
-    &nbsp;&nbsp;
-    <label for="groupDate">開始日期:</label>
-    <input type="date" id="groupDate" />
-    <button id="generateBtn">Generate Roster</button>
+    <span class="chip"><input type="radio" name="groupType" value="DAY" id="gday" checked><label for="gday">DAY 組</label></span>
+    <span class="chip"><input type="radio" name="groupType" value="NIGHT" id="gnight"><label for="gnight">NIGHT 組</label></span>
+    <label class="chip">開始日期：<input type="date" id="groupDate"></label>
+    <button class="primary" id="generateBtn">Generate</button>
     <button id="downloadBtn" disabled>Download Excel</button>
   </div>
 
-  <div class="availability">
-    <h2>Staff Availability（長假 或者 4 日入面其中有一日放假：請先取消勾；記得取消曬一個人所有勾）</h2>
-    <div class="role-group"><span class="role-group-title">BCR:</span><span id="bcrBox"></span></div>
-    <div class="role-group"><span class="role-group-title">EH / WH / MF:</span><span id="ehwhmfBox"></span></div>
-    <div class="role-group"><span class="role-group-title">DRIVER:</span><span id="driverBox"></span></div>
-    <div class="role-group"><span class="role-group-title">CCR_CONTROLLER:</span><span id="controllerBox"></span></div>
-    <div class="role-group"><span class="role-group-title">PM_LEADER (DAY):</span><span id="pmLeaderBox"></span></div>
-    <div class="role-group"><span class="role-group-title">DAILY_LEADER (NIGHT):</span><span id="dailyLeaderBox"></span></div>
-    <p style="margin-top:6px;font-size:13px;">
-      如果想永久加減人，請打開 <code>index.html</code> 最頂的 LIST 常數修改名單；
-      呢度（Staff Availability）用「勾 / 取消勾」控制今組可用人手。
-    </p>
+  <div class="availability" id="availCard">
+    <h2>Staff Availability（手機：點一下人名可以取消／再點選回復）</h2>
+    <div class="role-group">
+      <span class="role-group-title">BCR:</span>
+      <div class="pillbox" id="bcrBox"></div>
+    </div>
+    <div class="role-group">
+      <span class="role-group-title">EH / WH / MF:</span>
+      <div class="pillbox" id="ehwhmfBox"></div>
+    </div>
+    <div class="role-group">
+      <span class="role-group-title">DRIVER:</span>
+      <div class="pillbox" id="driverBox"></div>
+    </div>
+    <div class="role-group">
+      <span class="role-group-title">CCR_CONTROLLER:</span>
+      <div class="pillbox" id="controllerBox"></div>
+    </div>
+    <div class="role-group">
+      <span class="role-group-title">PM_LEADER (DAY):</span>
+      <div class="pillbox" id="pmLeaderBox"></div>
+    </div>
+    <div class="role-group">
+      <span class="role-group-title">DAILY_LEADER (NIGHT):</span>
+      <div class="pillbox" id="dailyLeaderBox"></div>
+    </div>
+    <p style="margin:6px 2px 0;color:#666;font-size:12px;">想永久加/減人，請直接改 <code>index.html</code> 頂部的名單常數。</p>
   </div>
 
-  <div id="resultWrap">
-    <div id="resultCol">
-      <h2 id="resultTitle" style="display:none;"></h2>
-      <div id="resultContainer"></div>
-    </div>
+  <h2 class="section-title" id="resultTitle" style="display:none;"></h2>
+  <div class="table-wrap sticky-head">
+    <div id="resultContainer"></div>
   </div>
 
 <script type="text/javascript">
@@ -81,7 +101,7 @@ function fmt(date){ var y=date.getFullYear(), m=('0'+(date.getMonth()+1)).slice(
 function shuffle(a){ var arr=a.slice(); for(var i=0;i<arr.length-1;i++){ var j=i+Math.floor(Math.random()*(arr.length-i)); var t=arr[i]; arr[i]=arr[j]; arr[j]=t; } return arr; }
 function buildTwoDaySequence(list, total){ var res=new Array(total); var idx=0, w=0; while(w<total){ var name=list[idx]; res[w]=name; if(w+1<total) res[w+1]=name; w+=2; idx=(idx+1)%list.length; } return res; }
 function tableToAoA(tbl){ var aoa=[]; var trs=tbl.getElementsByTagName('tr'); for(var i=0;i<trs.length;i++){ var row=[]; var cells=trs[i].children; for(var j=0;j<cells.length;j++){ row.push(cells[j].innerText||cells[j].textContent); } aoa.push(row); } return aoa; }
-function mkCheckboxes(id, list, group){ var c=document.getElementById(id); c.innerHTML=''; for(var i=0;i<list.length;i++){ var lab=document.createElement('label'); var cb=document.createElement('input'); cb.type='checkbox'; cb.name=group; cb.value=list[i]; cb.checked=true; lab.appendChild(cb); lab.appendChild(document.createTextNode(' '+list[i])); c.appendChild(lab); } }
+function mkCheckboxes(id, list, group){ var c=document.getElementById(id); c.innerHTML=''; for(var i=0;i<list.length;i++){ var lab=document.createElement('label'); lab.style.userSelect='none'; lab.style.cursor='pointer'; var cb=document.createElement('input'); cb.type='checkbox'; cb.name=group; cb.value=list[i]; cb.checked=true; cb.style.marginRight='6px'; lab.appendChild(cb); lab.appendChild(document.createTextNode(list[i])); c.appendChild(lab); } }
 function getSelected(group){ var arr=[]; var n=document.getElementsByName(group); for(var i=0;i<n.length;i++){ if(n[i].checked) arr.push(n[i].value); } return arr; }
 function unique(arr){ var m={}, out=[]; for(var i=0;i<arr.length;i++){ if(!m[arr[i]]){ m[arr[i]]=1; out.push(arr[i]); } } return out; }
 
@@ -117,6 +137,7 @@ function makeEditable(table, headers){
           if(!isDaily && opts.length===0) return;
           var current=(cell.innerText||cell.textContent||'').trim();
           var select=document.createElement('select');
+          select.style.fontSize='16px'; select.style.padding='6px 8px';
           var empty=document.createElement('option'); empty.value=''; empty.text='(空白)'; if(!current) empty.selected=true; select.appendChild(empty);
           for(var o=0;o<opts.length;o++){ var op=document.createElement('option'); op.value=opts[o]; op.text=opts[o]; if(opts[o]===current) op.selected=true; select.appendChild(op); }
           cell.innerHTML=''; cell.appendChild(select); select.focus();
@@ -184,7 +205,7 @@ function generateRoster(){
     tbl.appendChild(thead);
     var tb=document.createElement("tbody"); tbl.appendChild(tb);
     for(i=0;i<4;i++){ var map=assign(i); var row=[fmt(addDays(start,i)), driverSeq[i], map["MF"], map["WH"], map["EH"], bcrSeq[i], pmLeader]; var tr=document.createElement("tr"); for(var c=0;c<row.length;c++){ var td=document.createElement("td"); td.innerText=row[c]; tr.appendChild(td);} tb.appendChild(tr); }
-    title.innerText="DAY 排班"; title.style.display="block"; container.appendChild(tbl); makeEditable(tbl, heads);
+    title.style.display="block"; title.innerText="DAY 排班"; container.appendChild(tbl); makeEditable(tbl, heads);
   }else{
     function pickCCR(){ var arr=shuffle(controllerList); for(var a=0;a<arr.length;a++){ var cand=arr[a]; var okB=bcrList.filter(function(n){return n!==cand;}).length>=1; var okD=driverList.filter(function(n){return n!==cand;}).length>=1; var okE=ehwhmfList.filter(function(n){return n!==cand;}).length>=3; if(okB&&okD&&okE) return cand; } return arr[0]; }
     var ccr=pickCCR();
@@ -202,7 +223,7 @@ function generateRoster(){
     tbl2.appendChild(thead2);
     var tb2=document.createElement("tbody"); tbl2.appendChild(tb2);
     for(i=0;i<4;i++){ var tri=pickTriple(i); var d=driverSeq2[i], b=bcrSeq2[i]; var controller=ccr; var leader=""; if(d && DAILY_LEADER_LIST.indexOf(d)>=0 && dailyLeaderAvail.indexOf(d)>=0) leader=d; else if(tri[2] && DAILY_LEADER_LIST.indexOf(tri[2])>=0 && dailyLeaderAvail.indexOf(tri[2])>=0) leader=tri[2]; var row2=[fmt(addDays(start,i)), d, tri[2], tri[1], tri[0], b, controller, leader]; var tr2=document.createElement("tr"); for(var c2=0;c2<row2.length;c2++){ var td2=document.createElement("td"); td2.innerText=row2[c2]; tr2.appendChild(td2);} tb2.appendChild(tr2); }
-    title.innerText="NIGHT 排班"; title.style.display="block"; container.appendChild(tbl2); makeEditable(tbl2, heads2);
+    title.style.display="block"; title.innerText="NIGHT 排班"; container.appendChild(tbl2); makeEditable(tbl2, heads2);
   }
 
   CURRENT_OPTIONS = { DRIVER: driverList, EHWHMF: ehwhmfList, BCR: bcrList, PM_LEADER: pmLeaderList, CCR_CONTROLLER: controllerList, DAILY_LEADER: dailyLeaderAvail };
