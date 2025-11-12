@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <meta charset="UTF-8" />
-<title>APM Duty Roster Generator — v27-es5c-mobile</title>
+<title>APM Duty Roster Generator — v27-es5e</title>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -32,17 +32,11 @@
   th, td { border:1px solid #000; padding:10px; text-align:center; white-space:nowrap; font-size:14px; }
   thead tr:nth-child(1) th { background:#f3f3f3; }
   .sticky-head thead th { position:sticky; top:0; background:#f3f3f3; z-index:2; }
-  @media (max-width: 640px){
-    .availability { padding:8px; }
-    .role-group-title { font-size:14px; }
-    th, td { padding:8px 6px; font-size:13px; }
-    table { min-width:640px; }
-  }
 </style>
 </head>
 <body>
   <h1>APM Duty Roster Generator</h1>
-  <div class="ver">v27-es5c-mobile • 2025-11-12 05:49</div>
+  <div class="ver">v27-es5e • 2025-11-12 06:12</div>
 
   <div class="controls">
     <span class="chip"><input type="radio" name="groupType" value="DAY" id="gday" checked><label for="gday">DAY 組</label></span>
@@ -53,7 +47,7 @@
   </div>
 
   <div class="availability" id="availCard">
-    <h2>Staff Availability（手機：點一下人名可以取消／再點選回復）</h2>
+    <h2>Staff Availability</h2>
     <div class="role-group">
       <span class="role-group-title">BCR:</span>
       <div class="pillbox" id="bcrBox"></div>
@@ -78,7 +72,6 @@
       <span class="role-group-title">DAILY_LEADER (NIGHT):</span>
       <div class="pillbox" id="dailyLeaderBox"></div>
     </div>
-    <p style="margin:6px 2px 0;color:#666;font-size:12px;">想永久加/減人，請直接改 <code>index.html</code> 頂部的名單常數。</p>
   </div>
 
   <h2 class="section-title" id="resultTitle" style="display:none;"></h2>
@@ -87,6 +80,7 @@
   </div>
 
 <script type="text/javascript">
+// 名單
 var BCR_LIST = ["YK LAU","KC CHAN","WH LO","PF HO","TF TAM","CL KWONG","MT CHU"];
 var EH_WH_MF_LIST = ["WW NG","WH LO","PH LAO","TF TAM","YC WONG","PF HO","CL KWONG","YK LAU"];
 var DRIVER_LIST = ["KC CHAN","YT SIU","MT CHU"];
@@ -103,49 +97,50 @@ function buildTwoDaySequence(list, total){ var res=new Array(total); var idx=0, 
 function tableToAoA(tbl){ var aoa=[]; var trs=tbl.getElementsByTagName('tr'); for(var i=0;i<trs.length;i++){ var row=[]; var cells=trs[i].children; for(var j=0;j<cells.length;j++){ row.push(cells[j].innerText||cells[j].textContent); } aoa.push(row); } return aoa; }
 function mkCheckboxes(id, list, group){ var c=document.getElementById(id); c.innerHTML=''; for(var i=0;i<list.length;i++){ var lab=document.createElement('label'); lab.style.userSelect='none'; lab.style.cursor='pointer'; var cb=document.createElement('input'); cb.type='checkbox'; cb.name=group; cb.value=list[i]; cb.checked=true; cb.style.marginRight='6px'; lab.appendChild(cb); lab.appendChild(document.createTextNode(list[i])); c.appendChild(lab); } }
 function getSelected(group){ var arr=[]; var n=document.getElementsByName(group); for(var i=0;i<n.length;i++){ if(n[i].checked) arr.push(n[i].value); } return arr; }
-function unique(arr){ var m={}, out=[]; for(var i=0;i<arr.length;i++){ if(!m[arr[i]]){ m[arr[i]]=1; out.push(arr[i]); } } return out; }
+function arrWithout(arr, bad){ var out=[], i; for(i=0;i<arr.length;i++){ if(arr[i]!==bad) out.push(arr[i]); } return out; }
+function unique(arr){ var m={}, out=[], i; for(i=0;i<arr.length;i++){ if(!m[arr[i]]){ m[arr[i]]=1; out.push(arr[i]); } } return out; }
 
 function makeEditable(table, headers){
-  var driverIdx=headers.indexOf("DRIVER");
-  var mfIdx=headers.indexOf("MF");
   var rows=table.tBodies[0].rows;
   for(var r=0;r<rows.length;r++){
-    var cells=rows[r].cells;
-    for(var ci=0;ci<cells.length;ci++){
-      (function(cell, ci){
-        var role=headers[ci];
-        if(!role || role==="DATE") return;
-        cell.style.cursor="pointer";
-        cell.onclick=function(){
-          var opts=[]; var isDaily=false;
-          if(role==="DAILY_LEADER"){
-            isDaily=true;
-            var availableDaily = CURRENT_OPTIONS.DAILY_LEADER || [];
-            var drv = driverIdx>=0 ? (cells[driverIdx].innerText || cells[driverIdx].textContent) : "";
-            var mf  = mfIdx>=0 ? (cells[mfIdx].innerText || cells[mfIdx].textContent) : "";
-            drv = (drv||"").trim(); mf=(mf||"").trim();
-            if(availableDaily.indexOf(drv)>=0) opts.push(drv);
-            if(mf!==drv && availableDaily.indexOf(mf)>=0) opts.push(mf);
-            var used=[], k;
-            for(k=0;k<cells.length;k++){ var t=(cells[k].innerText||cells[k].textContent||'').trim(); if(t && t!=="(空白)") used.push(t); }
-            for(k=0;k<availableDaily.length;k++){ if(used.indexOf(availableDaily[k])<0) opts.push(availableDaily[k]); }
-            opts = unique(opts);
-          }else{
-            var key = (role==="MF"||role==="WH"||role==="EH") ? "EHWHMF" : role;
-            opts = CURRENT_OPTIONS[key]||[];
-          }
-          if(!isDaily && opts.length===0) return;
-          var current=(cell.innerText||cell.textContent||'').trim();
-          var select=document.createElement('select');
-          select.style.fontSize='16px'; select.style.padding='6px 8px';
-          var empty=document.createElement('option'); empty.value=''; empty.text='(空白)'; if(!current) empty.selected=true; select.appendChild(empty);
-          for(var o=0;o<opts.length;o++){ var op=document.createElement('option'); op.value=opts[o]; op.text=opts[o]; if(opts[o]===current) op.selected=true; select.appendChild(op); }
-          cell.innerHTML=''; cell.appendChild(select); select.focus();
-          var finalize=function(){ cell.innerHTML=select.value; };
-          select.onblur=finalize; select.onchange=finalize;
-        };
-      })(cells[ci], ci);
-    }
+    (function(tr){
+      for(var c=0;c<tr.cells.length;c++){
+        (function(cell, role){
+          if(!role || role==="DATE") return;
+          cell.style.cursor="pointer";
+          cell.onclick=function(){
+            var opts=[], key;
+            if(role==="DAILY_LEADER"){
+              var dailyAvail = CURRENT_OPTIONS.DAILY_LEADER||[];
+              // leader 可重覆，不需要避開已用；但放齊清單方便更改
+              opts = dailyAvail.slice();
+              // 把當晚 DRIVER / MF 放到最前（如在可用名單）
+              var map = {}; for(var x=0;x<opts.length;x++){ map[opts[x]]=1; }
+              var dTxt=(tr.cells[1].innerText||tr.cells[1].textContent||'').trim();
+              var mfTxt=(tr.cells[2].innerText||tr.cells[2].textContent||'').trim();
+              var front=[]; if(map[dTxt]) front.push(dTxt); if(map[mfTxt] && mfTxt!==dTxt) front.push(mfTxt);
+              for(var k=0;k<opts.length;k++){ if(front.indexOf(opts[k])<0) front.push(opts[k]); }
+              opts=front;
+            }else{
+              key = (role==="MF"||role==="WH"||role==="EH") ? "EHWHMF" : role;
+              opts = CURRENT_OPTIONS[key]||[];
+              // 不可與當日其他欄重覆
+              var used2=[], j;
+              for(j=0;j<tr.cells.length;j++){ var tt=(tr.cells[j].innerText||tr.cells[j].textContent||'').trim(); if(tt && tt!=="(空白)") used2.push(tt); }
+              var filtered=[]; for(j=0;j<opts.length;j++){ if(used2.indexOf(opts[j])<0) filtered.push(opts[j]); }
+              opts=filtered;
+            }
+            if(opts.length===0) return;
+            var current=(cell.innerText||cell.textContent||'').trim();
+            var sel=document.createElement('select'); var empty=document.createElement('option'); empty.value=''; empty.text='(空白)'; if(!current) empty.selected=true; sel.appendChild(empty);
+            for(var q=0;q<opts.length;q++){ var op=document.createElement('option'); op.value=op.text=opts[q]; if(opts[q]===current) op.selected=true; sel.appendChild(op); }
+            cell.innerHTML=''; cell.appendChild(sel); sel.focus();
+            var finalize=function(){ cell.innerHTML=sel.value; };
+            sel.onblur=finalize; sel.onchange=finalize;
+          };
+        })(rows[r].cells[c], headers[c]);
+      }
+    })(rows[r]);
   }
 }
 
@@ -172,58 +167,113 @@ function generateRoster(){
   if(groupType==="DAY" && pmLeaderList.length===0){ alert("DAY 需要 PM_LEADER"); return; }
   if(groupType==="NIGHT" && dailyLeaderAvail.length===0){ alert("NIGHT 需要最少一位可做 DAILY_LEADER 的人"); return; }
 
-  var TOTAL=4, MAX_TRIES=30;
+  var TOTAL=4;
 
   if(groupType==="DAY"){
-    var pmLeader = pmLeaderList[Math.floor(Math.random()*pmLeaderList.length)];
-    var bcrCandidates = bcrList.filter(function(n){return n!==pmLeader;}); if(bcrCandidates.length===0) bcrCandidates=bcrList.slice();
-    var bcrSeq = buildTwoDaySequence(bcrCandidates, TOTAL);
-    var driverSeq = buildTwoDaySequence(shuffle(driverList), TOTAL);
+    var end=addDays(start,3);
+    var heads=["DATE","DRIVER","MF","WH","EH","BCR","PM_LEADER"];
+    var tbl=document.createElement("table"); var thead=document.createElement("thead");
+    var r1=document.createElement("tr"); var th=document.createElement("th"); th.colSpan=heads.length; th.innerText="DAY 組（"+fmt(start)+" 至 "+fmt(end)+"）"; r1.appendChild(th); thead.appendChild(r1);
+    var r2=document.createElement("tr"); for(var i=0;i<heads.length;i++){ var h=document.createElement("th"); h.innerText=heads[i]; r2.appendChild(h);} thead.appendChild(r2);
+    tbl.appendChild(thead); var tb=document.createElement("tbody"); tbl.appendChild(tb);
 
-    var forbidMap={}; forbidMap[pmLeader]=true; for(var i=0;i<bcrSeq.length;i++){ forbidMap[bcrSeq[i]]=true; }
-    var dayPool=ehwhmfList.filter(function(n){return !forbidMap[n];}); if(dayPool.length<3) dayPool=ehwhmfList.slice();
-    var triple = shuffle(dayPool).slice(0,3);
+    var pm = pmLeaderList[Math.floor(Math.random()*pmLeaderList.length)];
+    var bcrCandidates = arrWithout(bcrList, pm); if(bcrCandidates.length===0) bcrCandidates=bcrList.slice();
+    var bcrSeq = buildTwoDaySequence(shuffle(bcrCandidates), TOTAL);
+    var driverSeq = buildTwoDaySequence(shuffle(driverList), TOTAL); // DAY 亦保持連兩日
 
-    var lastRoles={};
-    function assign(idx){
-      var roles=["EH","WH","MF"]; var chosen=null;
-      for(var t=0;t<MAX_TRIES;t++){
-        var perm=shuffle(triple), ok=true;
-        for(var j=0;j<3;j++){ var nm=perm[j], rl=roles[j], pv=lastRoles[nm]; if(pv && pv.role===rl && pv.streak>=2){ ok=false; break; } }
-        chosen=perm; if(ok) break;
+    var forbid={}, i; forbid[pm]=true; for(i=0;i<bcrSeq.length;i++){ forbid[bcrSeq[i]]=true; }
+    var pool=[]; for(i=0;i<ehwhmfList.length;i++){ if(!forbid[ehwhmfList[i]]) pool.push(ehwhmfList[i]); }
+    if(pool.length<3) pool=ehwhmfList.slice();
+    var triple=shuffle(pool).slice(0,3);
+    function rolesForDay(d){ var idx=d%3; var a=triple[idx], b=triple[(idx+1)%3], c=triple[(idx+2)%3]; return {EH:a, WH:b, MF:c}; }
+
+    for(i=0;i<TOTAL;i++){ var roles=rolesForDay(i); var row=[fmt(addDays(start,i)), driverSeq[i], roles.MF, roles.WH, roles.EH, bcrSeq[i], pm]; var tr=document.createElement("tr"); for(var c=0;c<row.length;c++){ var td=document.createElement("td"); td.innerText=row[c]; tr.appendChild(td);} tb.appendChild(tr); }
+    title.style.display="block"; title.innerText="DAY 排班"; container.appendChild(tbl); makeEditable(tbl, heads);
+  } else {
+    var i;
+    function pickCCR(){ var arr=shuffle(controllerList); for(var a=0;a<arr.length;a++){ var cand=arr[a]; var okB=arrWithout(bcrList,cand).length>=1; var okD=arrWithout(driverList,cand).length>=1; var okE=arrWithout(ehwhmfList,cand).length>=3; if(okB&&okD&&okE) return cand; } return arr[0]; }
+    var ccr = pickCCR();
+
+    var bcrBase = arrWithout(bcrList, ccr); if(bcrBase.length===0) bcrBase=bcrList.slice();
+    var bcrSeq = buildTwoDaySequence(shuffle(bcrBase), TOTAL);
+
+    var triplePool = arrWithout(ehwhmfList, ccr);
+    var triple = shuffle(triplePool).slice(0,3);
+    if(triple.length<3){ triple = shuffle(ehwhmfList).slice(0,3); }
+    function tripleForDay(d){ var idx=d%3; return [triple[idx], triple[(idx+1)%3], triple[(idx+2)%3]]; } // [EH, WH, MF]
+
+    // DRIVER：連兩日 pair，並避開當晚已用人（CCR/EH/WH/MF/BCR）
+    var driverBase = arrWithout(driverList, ccr); if(driverBase.length===0) driverBase=driverList.slice();
+    driverBase = shuffle(driverBase);
+    var nextIdx=0;
+    function planDriverPair(startDay, blockedSet){
+      // 循環找第一個不衝突的 candidate，回傳此人並把 day startDay 及 startDay+1 都用此人
+      var tried=0, cand;
+      while(tried < driverBase.length){
+        cand = driverBase[nextIdx % driverBase.length]; nextIdx++;
+        if(!blockedSet[cand]) return cand;
+        tried++;
       }
-      var out={}, j2;
-      for(j2=0;j2<3;j2++){ var nm2=chosen[j2], rl2=roles[j2], pv2=lastRoles[nm2]; out[rl2]=nm2; lastRoles[nm2]=(pv2&&pv2.role===rl2)?{role:rl2,streak:pv2.streak+1}:{role:rl2,streak:1}; }
-      return out;
+      return driverBase[0]; // fallback
     }
 
     var end=addDays(start,3);
-    var tbl=document.createElement("table"); tbl.className="card-table"; tbl.setAttribute("border","1"); tbl.style.borderCollapse="collapse";
-    var thead=document.createElement("thead");
-    var r1=document.createElement("tr"); var th=document.createElement("th"); th.colSpan=7; th.innerText="DAY 組（"+fmt(start)+" 至 "+fmt(end)+"）"; r1.appendChild(th); thead.appendChild(r1);
-    var heads=["DATE","DRIVER","MF","WH","EH","BCR","PM_LEADER"]; var r2=document.createElement("tr"); for(i=0;i<heads.length;i++){ var h=document.createElement("th"); h.innerText=heads[i]; r2.appendChild(h);} thead.appendChild(r2);
-    tbl.appendChild(thead);
-    var tb=document.createElement("tbody"); tbl.appendChild(tb);
-    for(i=0;i<4;i++){ var map=assign(i); var row=[fmt(addDays(start,i)), driverSeq[i], map["MF"], map["WH"], map["EH"], bcrSeq[i], pmLeader]; var tr=document.createElement("tr"); for(var c=0;c<row.length;c++){ var td=document.createElement("td"); td.innerText=row[c]; tr.appendChild(td);} tb.appendChild(tr); }
-    title.style.display="block"; title.innerText="DAY 排班"; container.appendChild(tbl); makeEditable(tbl, heads);
-  }else{
-    function pickCCR(){ var arr=shuffle(controllerList); for(var a=0;a<arr.length;a++){ var cand=arr[a]; var okB=bcrList.filter(function(n){return n!==cand;}).length>=1; var okD=driverList.filter(function(n){return n!==cand;}).length>=1; var okE=ehwhmfList.filter(function(n){return n!==cand;}).length>=3; if(okB&&okD&&okE) return cand; } return arr[0]; }
-    var ccr=pickCCR();
-    var bcrCandidates2=bcrList.filter(function(n){return n!==ccr;}); if(bcrCandidates2.length===0) bcrCandidates2=bcrList.slice();
-    var bcrSeq2=buildTwoDaySequence(bcrCandidates2, TOTAL);
-    var drvCandidates=driverList.filter(function(n){return n!==ccr;}); if(drvCandidates.length===0){ var alt=(driverList.filter(function(n){return n!==ccr;})[0])||driverList[0]; drvCandidates=[alt]; }
-    var driverSeq2=buildTwoDaySequence(shuffle(drvCandidates), TOTAL);
-    var lastNight={};
-    function pickTriple(i){ var b=bcrSeq2[i]; var cand=ehwhmfList.filter(function(n){return n!==b && n!==ccr;}); if(cand.length<3) cand=ehwhmfList.filter(function(n){return n!==b;}); if(cand.length<3) cand=ehwhmfList.slice(); var chosen=null; for(var t=0;t<MAX_TRIES;t++){ var sh=shuffle(cand); var tri=sh.slice(0,3); var ok=true; for(var k=0;k<tri.length;k++){ var name=tri[k]; var p=lastNight[name]||0; if(p>=2){ ok=false; break; } } chosen=tri; if(ok) break; } var ns={}; for(var k2=0;k2<chosen.length;k2++){ var n=chosen[k2]; ns[n]=(lastNight[n]||0)+1; } lastNight=ns; return chosen; }
-    var end2=addDays(start,3);
-    var tbl2=document.createElement("table"); tbl2.className="card-table"; tbl2.setAttribute("border","1"); tbl2.style.borderCollapse="collapse";
-    var thead2=document.createElement("thead");
-    var r1b=document.createElement("tr"); var thb=document.createElement("th"); thb.colSpan=8; thb.innerText="NIGHT 組（"+fmt(start)+" 至 "+fmt(end2)+"）"; r1b.appendChild(thb); thead2.appendChild(r1b);
-    var heads2=["DATE","DRIVER","MF","WH","EH","BCR","CCR_CONTROLLER","DAILY_LEADER"]; var r2b=document.createElement("tr"); for(i=0;i<heads2.length;i++){ var h2=document.createElement("th"); h2.innerText=heads2[i]; r2b.appendChild(h2);} thead2.appendChild(r2b);
-    tbl2.appendChild(thead2);
-    var tb2=document.createElement("tbody"); tbl2.appendChild(tb2);
-    for(i=0;i<4;i++){ var tri=pickTriple(i); var d=driverSeq2[i], b=bcrSeq2[i]; var controller=ccr; var leader=""; if(d && DAILY_LEADER_LIST.indexOf(d)>=0 && dailyLeaderAvail.indexOf(d)>=0) leader=d; else if(tri[2] && DAILY_LEADER_LIST.indexOf(tri[2])>=0 && dailyLeaderAvail.indexOf(tri[2])>=0) leader=tri[2]; var row2=[fmt(addDays(start,i)), d, tri[2], tri[1], tri[0], b, controller, leader]; var tr2=document.createElement("tr"); for(var c2=0;c2<row2.length;c2++){ var td2=document.createElement("td"); td2.innerText=row2[c2]; tr2.appendChild(td2);} tb2.appendChild(tr2); }
-    title.style.display="block"; title.innerText="NIGHT 排班"; container.appendChild(tbl2); makeEditable(tbl2, heads2);
+    var heads=["DATE","DRIVER","MF","WH","EH","BCR","CCR_CONTROLLER","DAILY_LEADER"];
+    var tbl=document.createElement("table"); var thead=document.createElement("thead");
+    var r1=document.createElement("tr"); var th=document.createElement("th"); th.colSpan=heads.length; th.innerText="NIGHT 組（"+fmt(start)+" 至 "+fmt(end)+"）"; r1.appendChild(th); thead.appendChild(r1);
+    var r2=document.createElement("tr"); for(i=0;i<heads.length;i++){ var h=document.createElement("th"); h.innerText=heads[i]; r2.appendChild(h);} thead.appendChild(r2);
+    tbl.appendChild(thead); var tb=document.createElement("tbody"); tbl.appendChild(tb);
+
+    var driverPlan = new Array(TOTAL);
+
+    for(i=0;i<TOTAL;i++){
+      var EH_WH_MF = tripleForDay(i);
+      var EHn = EH_WH_MF[0], WHn = EH_WH_MF[1], MFn = EH_WH_MF[2];
+
+      var blocked = {}; blocked[ccr]=true; blocked[EHn]=true; blocked[WHn]=true; blocked[MFn]=true;
+
+      var bcrToday = bcrSeq[i];
+      if(blocked[bcrToday]){
+        for(var bi=0; bi<bcrBase.length; bi++){ if(!blocked[bcrBase[bi]]){ bcrToday=bcrBase[bi]; break; } }
+      }
+      blocked[bcrToday]=true;
+
+      // Driver pair logic
+      if(driverPlan[i] == null){
+        var cand = planDriverPair(i, blocked);
+        driverPlan[i] = cand;
+        if(i+1 < TOTAL) driverPlan[i+1] = cand; // make the pair
+      }
+      var drv = driverPlan[i];
+      // 極端情況：pair 已定但撞名（例如翌日不同 blocked），臨時換另一位但同樣把 pair 改為新的人
+      if(blocked[drv]){
+        var tried=0, alt=drv;
+        while(tried<driverBase.length && blocked[alt]){
+          alt = driverBase[(nextIdx++) % driverBase.length];
+          tried+=1;
+        }
+        drv = alt;
+        driverPlan[i] = drv;
+        if(i%2==0 && i+1<TOTAL) driverPlan[i+1] = drv;
+        if(i%2==1) driverPlan[i-1] = drv; // 保持前一日同一人（成對）
+      }
+      blocked[drv]=true;
+
+      // Daily leader 自動：優先 DRIVER，其次 MF，再其次任意可用名單第一個；可與其他欄重覆
+      var leaderToday = "";
+      if(DAILY_LEADER_LIST.indexOf(drv)>=0 && getSelected('dailyleader').indexOf(drv)>=0) leaderToday = drv;
+      else if(DAILY_LEADER_LIST.indexOf(MFn)>=0 && getSelected('dailyleader').indexOf(MFn)>=0) leaderToday = MFn;
+      else {
+        var avail = getSelected('dailyleader');
+        leaderToday = (avail[0]||"");
+      }
+
+      var row=[fmt(addDays(start,i)), drv, MFn, WHn, EHn, bcrToday, ccr, leaderToday];
+      var tr=document.createElement("tr"); for(var c=0;c<row.length;c++){ var td=document.createElement("td"); td.innerText=row[c]; tr.appendChild(td);} tb.appendChild(tr);
+    }
+
+    title.style.display="block"; title.innerText="NIGHT 排班"; container.appendChild(tbl); makeEditable(tbl, heads);
   }
 
   CURRENT_OPTIONS = { DRIVER: driverList, EHWHMF: ehwhmfList, BCR: bcrList, PM_LEADER: pmLeaderList, CCR_CONTROLLER: controllerList, DAILY_LEADER: dailyLeaderAvail };
