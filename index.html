@@ -1,37 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>APM Duty Roster Generator — v24</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <style>
-    body { font-family: Arial, Helvetica, sans-serif; margin: 20px; }
-    .ver { text-align:center; font-size:12px; color:#666; margin-top:-8px; margin-bottom:8px; }
-    h1 { text-align: center; margin-bottom: 4px; }
-    .controls { margin-bottom: 12px; text-align: center; }
-    label { font-weight: bold; margin-right: 8px; }
-    input[type="date"] { padding: 4px 8px; font-size: 14px; margin-right: 6px; }
-    button { padding: 6px 12px; margin: 0 5px; font-size: 14px; cursor: pointer; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .availability { border: 1px solid #ccc; padding: 10px; margin-bottom: 12px; }
-    .availability h2 { margin-top: 0; font-size: 18px; }
-    .role-group { margin-bottom: 8px; }
-    .role-group-title { font-weight: bold; margin-right: 6px; display: inline-block; min-width: 180px; }
-    .role-group label { font-weight: normal; margin-right: 10px; white-space: nowrap; }
-    table { border-collapse: collapse; min-width: 620px; margin: 0 auto; }
-    th, td { border: 1px solid #000; padding: 4px 8px; text-align: center; white-space: nowrap; }
-    thead tr:nth-child(1) th { font-weight: bold; text-align: center; background-color: #f0f0f0; }
-    thead tr:nth-child(2) th { font-weight: bold; }
-    .card-table { margin-bottom: 16px; box-shadow: 0 0 6px rgba(0,0,0,0.1); border-radius: 6px; overflow: hidden; }
-    #resultWrap { display: flex; justify-content: center; }
-    #resultCol { flex: 1; max-width: 980px; }
-    #resultTitle { text-align: center; margin-bottom: 8px; }
-  </style>
+<meta charset="UTF-8" />
+<title>APM Duty Roster Generator — v27-es5b</title>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; margin: 20px; }
+  .ver { text-align:center; font-size:12px; color:#666; margin-top:-8px; margin-bottom:8px; }
+  h1 { text-align: center; margin-bottom: 4px; }
+  .controls { margin-bottom: 12px; text-align: center; }
+  label { font-weight: bold; margin-right: 8px; }
+  input[type="date"] { padding: 4px 8px; font-size: 14px; margin-right: 6px; }
+  button { padding: 6px 12px; margin: 0 5px; font-size: 14px; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .availability { border: 1px solid #ccc; padding: 10px; margin-bottom: 12px; }
+  .availability h2 { margin-top: 0; font-size: 18px; }
+  .role-group { margin-bottom: 8px; }
+  .role-group-title { font-weight: bold; margin-right: 6px; display: inline-block; min-width: 180px; }
+  .role-group label { font-weight: normal; margin-right: 10px; white-space: nowrap; }
+  table { border-collapse: collapse; min-width: 760px; margin: 0 auto; border: 1px solid #000; }
+  th, td { border: 1px solid #000; padding: 6px 10px; text-align: center; white-space: nowrap; }
+  thead tr:nth-child(1) th { font-weight: bold; text-align: center; background-color: #f0f0f0; }
+  thead tr:nth-child(2) th { font-weight: bold; }
+  .card-table { margin-bottom: 16px; box-shadow: 0 0 6px rgba(0,0,0,0.08); border-radius: 6px; overflow: hidden; }
+  #resultWrap { display: flex; justify-content: center; }
+  #resultCol { flex: 1; max-width: 980px; }
+  #resultTitle { text-align: center; margin-bottom: 8px; }
+</style>
 </head>
 <body>
   <h1>APM Duty Roster Generator</h1>
-  <div class="ver">v24 • 2025-11-12 02:56</div>
+  <div class="ver">v27-es5b • 2025-11-12 05:23</div>
 
   <div class="controls">
     <span style="margin-right:10px;">只出一組：</span>
@@ -54,7 +55,7 @@
     <div class="role-group"><span class="role-group-title">DAILY_LEADER (NIGHT):</span><span id="dailyLeaderBox"></span></div>
     <p style="margin-top:6px;font-size:13px;">
       如果想永久加減人，請打開 <code>index.html</code> 最頂的 LIST 常數修改名單；
-      這裡（Staff Availability）會以「勾 / 取消勾」方式控制今組的可用人手。
+      呢度（Staff Availability）用「勾 / 取消勾」控制今組可用人手。
     </p>
   </div>
 
@@ -65,211 +66,152 @@
     </div>
   </div>
 
-  <script>
-    // --- BASE LISTS (名單常數) ---
-    const BCR_LIST = ["YK LAU","KC CHAN","WH LO","PF HO","TF TAM","CL KWONG","MT CHU"];
-    const EH_WH_MF_LIST = ["WW NG","WH LO","PH LAO","TF TAM","YC WONG","PF HO","CL KWONG","YK LAU"];
-    const DRIVER_LIST = ["KC CHAN","YT SIU","MT CHU"];
-    const CONTROLLER_LIST = ["KC CHAN","YT SIU","WW NG","WH LO","PH LAO","CK YUEN","YC WONG"];
-    const PM_LEADER_LIST = ["WW NG","WH LO","PH LAO","YC WONG","PF HO","CL KWONG","YK LAU"];
-    const DAILY_LEADER_LIST = ["WW NG","WH LO","PH LAO","YC WONG","PF HO","KC CHAN","MT CHU","HL CHEUNG","CL KWONG","YK LAU"];
+<script type="text/javascript">
+var BCR_LIST = ["YK LAU","KC CHAN","WH LO","PF HO","TF TAM","CL KWONG","MT CHU"];
+var EH_WH_MF_LIST = ["WW NG","WH LO","PH LAO","TF TAM","YC WONG","PF HO","CL KWONG","YK LAU"];
+var DRIVER_LIST = ["KC CHAN","YT SIU","MT CHU"];
+var CONTROLLER_LIST = ["KC CHAN","YT SIU","WW NG","WH LO","PH LAO","CK YUEN","YC WONG"];
+var PM_LEADER_LIST = ["WW NG","WH LO","PH LAO","YC WONG","PF HO","CL KWONG","YK LAU"];
+var DAILY_LEADER_LIST = ["WW NG","WH LO","PH LAO","YC WONG","PF HO","KC CHAN","MT CHU","HL CHEUNG","CL KWONG","YK LAU"];
 
-    let CURRENT_OPTIONS = {};
+var CURRENT_OPTIONS = {};
 
-    // --- utils ---
-    function addDays(date, days){ const r=new Date(date); r.setDate(r.getDate()+days); return r; }
-    function fmt(date){ const y=date.getFullYear(), m=String(date.getMonth()+1).padStart(2,"0"), d=String(date.getDate()).padStart(2,"0"); return `${y}-${m}-${d}`; }
-    function shuffle(a){ const arr=a.slice(); for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]];} return arr; }
-    function buildTwoDaySequence(list, total){ const res=new Array(total); let idx=0, w=0; while(w<total){ const name=list[idx]; res[w]=name; if(w+1<total) res[w+1]=name; w+=2; idx=(idx+1)%list.length;} return res; }
-    function tableToAoA(tbl){ const aoa=[]; tbl.querySelectorAll("tr").forEach(tr=>{ const row=[]; tr.querySelectorAll("th,td").forEach(td=>row.push(td.innerText)); aoa.push(row); }); return aoa; }
-    function mkCheckboxes(id, list, group){ const c=document.getElementById(id); c.innerHTML=""; list.forEach(n=>{ const lab=document.createElement("label"); const cb=document.createElement("input"); cb.type="checkbox"; cb.name=group; cb.value=n; cb.checked=true; lab.appendChild(cb); lab.append(" "+n); c.appendChild(lab); }); }
-    function getSelected(group){ return Array.from(document.querySelectorAll('input[name="'+group+'"]:checked')).map(cb=>cb.value); }
+function addDays(date, days){ var r=new Date(date); r.setDate(r.getDate()+days); return r; }
+function fmt(date){ var y=date.getFullYear(), m=('0'+(date.getMonth()+1)).slice(-2), d=('0'+date.getDate()).slice(-2); return y+'-'+m+'-'+d; }
+function shuffle(a){ var arr=a.slice(); for(var i=0;i<arr.length-1;i++){ var j=i+Math.floor(Math.random()*(arr.length-i)); var t=arr[i]; arr[i]=arr[j]; arr[j]=t; } return arr; }
+function buildTwoDaySequence(list, total){ var res=new Array(total); var idx=0, w=0; while(w<total){ var name=list[idx]; res[w]=name; if(w+1<total) res[w+1]=name; w+=2; idx=(idx+1)%list.length; } return res; }
+function tableToAoA(tbl){ var aoa=[]; var trs=tbl.getElementsByTagName('tr'); for(var i=0;i<trs.length;i++){ var row=[]; var cells=trs[i].children; for(var j=0;j<cells.length;j++){ row.push(cells[j].innerText||cells[j].textContent); } aoa.push(row); } return aoa; }
+function mkCheckboxes(id, list, group){ var c=document.getElementById(id); c.innerHTML=''; for(var i=0;i<list.length;i++){ var lab=document.createElement('label'); var cb=document.createElement('input'); cb.type='checkbox'; cb.name=group; cb.value=list[i]; cb.checked=true; lab.appendChild(cb); lab.appendChild(document.createTextNode(' '+list[i])); c.appendChild(lab); } }
+function getSelected(group){ var arr=[]; var n=document.getElementsByName(group); for(var i=0;i<n.length;i++){ if(n[i].checked) arr.push(n[i].value); } return arr; }
+function unique(arr){ var m={}, out=[]; for(var i=0;i<arr.length;i++){ if(!m[arr[i]]){ m[arr[i]]=1; out.push(arr[i]); } } return out; }
 
-    // editable cells（Daily leader 用今組可用名單）
-    function makeEditable(table, headers){
-      const driverIdx=headers.indexOf("DRIVER");
-      const mfIdx=headers.indexOf("MF");
-      const rows=table.querySelectorAll("tbody tr");
-      rows.forEach(row=>{ 
-        const cells=row.querySelectorAll("td");
-        cells.forEach((cell, ci)=>{ 
-          const role=headers[ci];
-          if(!role || role==="DATE") return;
-          cell.style.cursor="pointer";
-          cell.addEventListener("click", ()=>{ 
-            let opts=[]; let isDaily=false;
-            if(role==="DAILY_LEADER"){ 
-              isDaily=true;
-              const availableDaily = CURRENT_OPTIONS.DAILY_LEADER || [];
-              const drv=driverIdx>=0?(cells[driverIdx].innerText.trim()||""):"";
-              const mf=mfIdx>=0?(cells[mfIdx].innerText.trim()||""):"";
-              if(drv && availableDaily.includes(drv)) opts.push(drv);
-              if(mf && mf!==drv && availableDaily.includes(mf)) opts.push(mf);
-              if(opts.length===0){ 
-                const used=Array.from(row.querySelectorAll("td")).map(td=>td.innerText.trim()).filter(n=>n && n!=="(空白)");
-                opts = availableDaily.filter(n=>!used.includes(n));
-              }
-            }else{ 
-              const key = (role==="MF"||role==="WH"||role==="EH") ? "EHWHMF" : role;
-              opts = CURRENT_OPTIONS[key]||[];
-            }
-            if(!opts.length && !isDaily) return;
-            const current=cell.innerText.trim();
-            const usedNames=Array.from(row.querySelectorAll("td")).map(td=>td.innerText.trim()).filter(n=>n && n!=="(空白)");
-            const options = isDaily ? opts.slice() : opts.filter(n=>n===current || !usedNames.includes(n));
-            const select=document.createElement("select");
-            const empty=document.createElement("option"); empty.value=""; empty.text="(空白)"; if(!current) empty.selected=true; select.appendChild(empty);
-            options.forEach(n=>{ const o=document.createElement("option"); o.value=n; o.text=n; if(n===current) o.selected=true; select.appendChild(o); });
-            cell.innerHTML=""; cell.appendChild(select); select.focus();
-            const finalize=()=>{ cell.innerHTML=select.value; };
-            select.addEventListener("blur", finalize); select.addEventListener("change", finalize);
-          });
-        });
-      });
+function makeEditable(table, headers){
+  var driverIdx=headers.indexOf("DRIVER");
+  var mfIdx=headers.indexOf("MF");
+  var rows=table.tBodies[0].rows;
+  for(var r=0;r<rows.length;r++){
+    var cells=rows[r].cells;
+    for(var ci=0;ci<cells.length;ci++){
+      (function(cell, ci){
+        var role=headers[ci];
+        if(!role || role==="DATE") return;
+        cell.style.cursor="pointer";
+        cell.onclick=function(){
+          var opts=[]; var isDaily=false;
+          if(role==="DAILY_LEADER"){
+            isDaily=true;
+            var availableDaily = CURRENT_OPTIONS.DAILY_LEADER || [];
+            var drv = driverIdx>=0 ? (cells[driverIdx].innerText || cells[driverIdx].textContent) : "";
+            var mf  = mfIdx>=0 ? (cells[mfIdx].innerText || cells[mfIdx].textContent) : "";
+            drv = (drv||"").trim(); mf=(mf||"").trim();
+            if(availableDaily.indexOf(drv)>=0) opts.push(drv);
+            if(mf!==drv && availableDaily.indexOf(mf)>=0) opts.push(mf);
+            var used=[], k;
+            for(k=0;k<cells.length;k++){ var t=(cells[k].innerText||cells[k].textContent||'').trim(); if(t && t!=="(空白)") used.push(t); }
+            for(k=0;k<availableDaily.length;k++){ if(used.indexOf(availableDaily[k])<0) opts.push(availableDaily[k]); }
+            opts = unique(opts);
+          }else{
+            var key = (role==="MF"||role==="WH"||role==="EH") ? "EHWHMF" : role;
+            opts = CURRENT_OPTIONS[key]||[];
+          }
+          if(!isDaily && opts.length===0) return;
+          var current=(cell.innerText||cell.textContent||'').trim();
+          var select=document.createElement('select');
+          var empty=document.createElement('option'); empty.value=''; empty.text='(空白)'; if(!current) empty.selected=true; select.appendChild(empty);
+          for(var o=0;o<opts.length;o++){ var op=document.createElement('option'); op.value=opts[o]; op.text=opts[o]; if(opts[o]===current) op.selected=true; select.appendChild(op); }
+          cell.innerHTML=''; cell.appendChild(select); select.focus();
+          var finalize=function(){ cell.innerHTML=select.value; };
+          select.onblur=finalize; select.onchange=finalize;
+        };
+      })(cells[ci], ci);
     }
+  }
+}
 
-    function generateRoster(){ 
-      const container=document.getElementById("resultContainer");
-      const title=document.getElementById("resultTitle");
-      container.innerHTML=""; title.style.display="none"; title.innerText="";
+function generateRoster(){
+  var container=document.getElementById("resultContainer");
+  var title=document.getElementById("resultTitle");
+  container.innerHTML=''; title.style.display="none"; title.innerText='';
 
-      var groupTypeEl = document.querySelector('input[name="groupType"]:checked');
-      var groupType = groupTypeEl ? groupTypeEl.value : "DAY";
+  var groupType = (document.querySelector('input[name="groupType"]:checked')||{}).value || "DAY";
+  var dateStr=document.getElementById("groupDate").value;
+  if(!dateStr){ alert("請先選擇開始日期"); return; }
+  var start=new Date(dateStr);
 
-      const dateStr=document.getElementById("groupDate").value;
-      if(!dateStr){ alert("請先選擇開始日期"); return; }
-      const start=new Date(dateStr);
+  var bcrList=getSelected("bcr");
+  var ehwhmfList=getSelected("ehwhmf");
+  var driverList=getSelected("driver");
+  var controllerList=getSelected("controller");
+  var pmLeaderList=getSelected("pmleader");
+  var dailyLeaderAvail=getSelected("dailyleader");
 
-      const bcrList=getSelected("bcr");
-      const ehwhmfList=getSelected("ehwhmf");
-      const driverList=getSelected("driver");
-      const controllerList=getSelected("controller");
-      const pmLeaderList=getSelected("pmleader");
-      const dailyLeaderAvail=getSelected("dailyleader"); 
+  if(bcrList.length===0){ alert("BCR 沒有人可用"); return; }
+  if(ehwhmfList.length<3){ alert("EH/WH/MF 少於 3 人"); return; }
+  if(driverList.length===0){ alert("DRIVER 沒有人可用"); return; }
+  if(groupType==="DAY" && pmLeaderList.length===0){ alert("DAY 需要 PM_LEADER"); return; }
+  if(groupType==="NIGHT" && dailyLeaderAvail.length===0){ alert("NIGHT 需要最少一位可做 DAILY_LEADER 的人"); return; }
 
-      if(bcrList.length===0){ alert("BCR 沒有人可用"); return; }
-      if(ehwhmfList.length<3){ alert("EH/WH/MF 少於 3 人"); return; }
-      if(driverList.length===0){ alert("DRIVER 沒有人可用"); return; }
-      if(groupType==="DAY" && pmLeaderList.length===0){ alert("DAY 需要 PM_LEADER"); return; }
-      if(groupType==="NIGHT" && dailyLeaderAvail.length===0){ alert("NIGHT 需要最少一位可做 DAILY_LEADER 的人"); return; }
+  var TOTAL=4, MAX_TRIES=30;
 
-      const TOTAL=4, MAX_TRIES=30;
+  if(groupType==="DAY"){
+    var pmLeader = pmLeaderList[Math.floor(Math.random()*pmLeaderList.length)];
+    var bcrCandidates = bcrList.filter(function(n){return n!==pmLeader;}); if(bcrCandidates.length===0) bcrCandidates=bcrList.slice();
+    var bcrSeq = buildTwoDaySequence(bcrCandidates, TOTAL);
+    var driverSeq = buildTwoDaySequence(shuffle(driverList), TOTAL);
 
-      if(groupType==="DAY"){ 
-        const pmLeader = pmLeaderList[Math.floor(Math.random()*pmLeaderList.length)];
-        let bcrCandidates = bcrList.filter(n=>n!==pmLeader);
-        if(bcrCandidates.length===0) bcrCandidates=bcrList.slice();
-        const bcrSeq = buildTwoDaySequence(bcrCandidates, TOTAL);
-        const driverSeq = buildTwoDaySequence(shuffle(driverList), TOTAL);
+    var forbidMap={}; forbidMap[pmLeader]=true; for(var i=0;i<bcrSeq.length;i++){ forbidMap[bcrSeq[i]]=true; }
+    var dayPool=ehwhmfList.filter(function(n){return !forbidMap[n];}); if(dayPool.length<3) dayPool=ehwhmfList.slice();
+    var triple = shuffle(dayPool).slice(0,3);
 
-        const dayBcrSet=new Set(bcrSeq);
-        const forbid=new Set(dayBcrSet); forbid.add(pmLeader);
-
-        let dayPool = ehwhmfList.filter(n=>!forbid.has(n));
-        if(dayPool.length<3) dayPool = ehwhmfList.filter(n=>!dayBcrSet.has(n));
-        if(dayPool.length<3) dayPool = ehwhmfList.slice();
-        const triple = shuffle(dayPool).slice(0,3);
-
-        const lastRoles={};
-        function assign(idx){ 
-          const roles=["EH","WH","MF"];
-          let chosen=null;
-          for(let t=0;t<MAX_TRIES;t++){ 
-            const perm=shuffle(triple);
-            let ok=true;
-            for(let i=0;i<3;i++){ const name=perm[i], role=roles[i]; const prev=lastRoles[name]; if(prev && prev.role===role && prev.streak>=2){ ok=false; break; } }
-            chosen = perm; if(ok) break;
-          }
-          const out={};
-          for(let i=0;i<3;i++){ const name=chosen[i], role=roles[i]; out[role]=name; const prev=lastRoles[name]; lastRoles[name] = prev && prev.role===role ? {role,streak:prev.streak+1} : {role,streak:1}; }
-          return out;
-        }
-
-        const end=addDays(start,3);
-        const tbl=document.createElement("table"); tbl.className="card-table";
-        const thead=document.createElement("thead");
-        const r1=document.createElement("tr"); const th=document.createElement("th");
-        th.colSpan=7; th.innerText=`DAY 組（${fmt(start)} 至 ${fmt(end)}）`; r1.appendChild(th); thead.appendChild(r1);
-        const r2=document.createElement("tr"); ["DATE","DRIVER","MF","WH","EH","BCR","PM_LEADER"].forEach(t=>{ const h=document.createElement("th"); h.innerText=t; r2.appendChild(h); }); thead.appendChild(r2);
-        tbl.appendChild(thead);
-        const tb=document.createElement("tbody"); tbl.appendChild(tb);
-
-        for(let i=0;i<4;i++){ const map=assign(i); const row=[fmt(addDays(start,i)), driverSeq[i], map["MF"], map["WH"], map["EH"], bcrSeq[i], pmLeader]; const tr=document.createElement("tr"); row.forEach(text=>{ const td=document.createElement("td"); td.innerText=text; tr.appendChild(td); }); tb.appendChild(tr); }
-        title.innerText="DAY 排班"; title.style.display="block";
-        container.appendChild(tbl);
-        makeEditable(tbl, ["DATE","DRIVER","MF","WH","EH","BCR","PM_LEADER"]);
-      }else{ // NIGHT
-        const bcrSeq = buildTwoDaySequence(bcrList, TOTAL);
-        const driverSeq = buildTwoDaySequence(shuffle(driverList), TOTAL);
-        const lastNight={};
-
-        function pickTriple(i){ 
-          const bcr=bcrSeq[i];
-          let cand=ehwhmfList.filter(n=>n!==bcr);
-          if(cand.length<3) cand=ehwhmfList.slice();
-          let chosen=null;
-          for(let t=0;t<MAX_TRIES;t++){ 
-            const sh=shuffle(cand); const tri=sh.slice(0,3);
-            let ok=true; for(const n of tri){ const p=lastNight[n]||0; if(p>=2){ ok=false; break; } }
-            chosen=tri; if(ok) break;
-          }
-          const ns={}; for(const n of chosen){ const p=lastNight[n]||0; ns[n]=p+1; }
-          for(const k in lastNight) delete lastNight[k]; Object.assign(lastNight, ns);
-          return chosen;
-        }
-
-        const end=addDays(start,3);
-        const tbl=document.createElement("table"); tbl.className="card-table";
-        const thead=document.createElement("thead");
-        const r1=document.createElement("tr"); const th=document.createElement("th");
-        th.colSpan=8; th.innerText=`NIGHT 組（${fmt(start)} 至 ${fmt(end)}）`; r1.appendChild(th); thead.appendChild(r1);
-        const r2=document.createElement("tr"); ["DATE","DRIVER","MF","WH","EH","BCR","CCR_CONTROLLER","DAILY_LEADER"].forEach(t=>{ const h=document.createElement("th"); h.innerText=t; r2.appendChild(h); }); thead.appendChild(r2);
-        tbl.appendChild(thead);
-        const tb=document.createElement("tbody"); tbl.appendChild(tb);
-
-        for(let i=0;i<4;i++){ 
-          const [eh,wh,mf]=pickTriple(i);
-          const d=driverSeq[i], b=bcrSeq[i]; const controller="";
-          let leader="";
-          if(d && dailyLeaderAvail.includes(d)) leader=d;
-          else if(mf && dailyLeaderAvail.includes(mf)) leader=mf;
-          const row=[fmt(addDays(start,i)), d, mf, wh, eh, b, controller, leader];
-          const tr=document.createElement("tr"); row.forEach(text=>{ const td=document.createElement("td"); td.innerText=text; tr.appendChild(td); }); tb.appendChild(tr);
-        }
-        title.innerText="NIGHT 排班"; title.style.display="block";
-        container.appendChild(tbl);
-        makeEditable(tbl, ["DATE","DRIVER","MF","WH","EH","BCR","CCR_CONTROLLER","DAILY_LEADER"]);
+    var lastRoles={};
+    function assign(idx){
+      var roles=["EH","WH","MF"]; var chosen=null;
+      for(var t=0;t<MAX_TRIES;t++){
+        var perm=shuffle(triple), ok=true;
+        for(var j=0;j<3;j++){ var nm=perm[j], rl=roles[j], pv=lastRoles[nm]; if(pv && pv.role===rl && pv.streak>=2){ ok=false; break; } }
+        chosen=perm; if(ok) break;
       }
-
-      CURRENT_OPTIONS = { 
-        DRIVER: driverList, EHWHMF: ehwhmfList, BCR: bcrList, PM_LEADER: pmLeaderList, CCR_CONTROLLER: controllerList, DAILY_LEADER: dailyLeaderAvail
-      };
-      document.getElementById("downloadBtn").disabled = false;
+      var out={}, j2;
+      for(j2=0;j2<3;j2++){ var nm2=chosen[j2], rl2=roles[j2], pv2=lastRoles[nm2]; out[rl2]=nm2; lastRoles[nm2]=(pv2&&pv2.role===rl2)?{role:rl2,streak:pv2.streak+1}:{role:rl2,streak:1}; }
+      return out;
     }
 
-    function downloadExcel(){ 
-      const wb=XLSX.utils.book_new();
-      const container=document.getElementById("resultContainer");
-      const tbl = container.querySelector("table");
-      if(!tbl){ alert("未有結果可匯出"); return; }
-      const aoa=tableToAoA(tbl);
-      const title=document.getElementById("resultTitle").innerText.includes("DAY") ? "DAY" : "NIGHT";
-      const sheet=XLSX.utils.aoa_to_sheet(aoa);
-      XLSX.utils.book_append_sheet(wb, sheet, title);
-      XLSX.writeFile(wb, "APM_duty_roster_one_group.xlsx");
-    }
+    var end=addDays(start,3);
+    var tbl=document.createElement("table"); tbl.className="card-table"; tbl.setAttribute("border","1"); tbl.style.borderCollapse="collapse";
+    var thead=document.createElement("thead");
+    var r1=document.createElement("tr"); var th=document.createElement("th"); th.colSpan=7; th.innerText="DAY 組（"+fmt(start)+" 至 "+fmt(end)+"）"; r1.appendChild(th); thead.appendChild(r1);
+    var heads=["DATE","DRIVER","MF","WH","EH","BCR","PM_LEADER"]; var r2=document.createElement("tr"); for(i=0;i<heads.length;i++){ var h=document.createElement("th"); h.innerText=heads[i]; r2.appendChild(h);} thead.appendChild(r2);
+    tbl.appendChild(thead);
+    var tb=document.createElement("tbody"); tbl.appendChild(tb);
+    for(i=0;i<4;i++){ var map=assign(i); var row=[fmt(addDays(start,i)), driverSeq[i], map["MF"], map["WH"], map["EH"], bcrSeq[i], pmLeader]; var tr=document.createElement("tr"); for(var c=0;c<row.length;c++){ var td=document.createElement("td"); td.innerText=row[c]; tr.appendChild(td);} tb.appendChild(tr); }
+    title.innerText="DAY 排班"; title.style.display="block"; container.appendChild(tbl); makeEditable(tbl, heads);
+  }else{
+    function pickCCR(){ var arr=shuffle(controllerList); for(var a=0;a<arr.length;a++){ var cand=arr[a]; var okB=bcrList.filter(function(n){return n!==cand;}).length>=1; var okD=driverList.filter(function(n){return n!==cand;}).length>=1; var okE=ehwhmfList.filter(function(n){return n!==cand;}).length>=3; if(okB&&okD&&okE) return cand; } return arr[0]; }
+    var ccr=pickCCR();
+    var bcrCandidates2=bcrList.filter(function(n){return n!==ccr;}); if(bcrCandidates2.length===0) bcrCandidates2=bcrList.slice();
+    var bcrSeq2=buildTwoDaySequence(bcrCandidates2, TOTAL);
+    var drvCandidates=driverList.filter(function(n){return n!==ccr;}); if(drvCandidates.length===0){ var alt=(driverList.filter(function(n){return n!==ccr;})[0])||driverList[0]; drvCandidates=[alt]; }
+    var driverSeq2=buildTwoDaySequence(shuffle(drvCandidates), TOTAL);
+    var lastNight={};
+    function pickTriple(i){ var b=bcrSeq2[i]; var cand=ehwhmfList.filter(function(n){return n!==b && n!==ccr;}); if(cand.length<3) cand=ehwhmfList.filter(function(n){return n!==b;}); if(cand.length<3) cand=ehwhmfList.slice(); var chosen=null; for(var t=0;t<MAX_TRIES;t++){ var sh=shuffle(cand); var tri=sh.slice(0,3); var ok=true; for(var k=0;k<tri.length;k++){ var name=tri[k]; var p=lastNight[name]||0; if(p>=2){ ok=false; break; } } chosen=tri; if(ok) break; } var ns={}; for(var k2=0;k2<chosen.length;k2++){ var n=chosen[k2]; ns[n]=(lastNight[n]||0)+1; } lastNight=ns; return chosen; }
+    var end2=addDays(start,3);
+    var tbl2=document.createElement("table"); tbl2.className="card-table"; tbl2.setAttribute("border","1"); tbl2.style.borderCollapse="collapse";
+    var thead2=document.createElement("thead");
+    var r1b=document.createElement("tr"); var thb=document.createElement("th"); thb.colSpan=8; thb.innerText="NIGHT 組（"+fmt(start)+" 至 "+fmt(end2)+"）"; r1b.appendChild(thb); thead2.appendChild(r1b);
+    var heads2=["DATE","DRIVER","MF","WH","EH","BCR","CCR_CONTROLLER","DAILY_LEADER"]; var r2b=document.createElement("tr"); for(i=0;i<heads2.length;i++){ var h2=document.createElement("th"); h2.innerText=heads2[i]; r2b.appendChild(h2);} thead2.appendChild(r2b);
+    tbl2.appendChild(thead2);
+    var tb2=document.createElement("tbody"); tbl2.appendChild(tb2);
+    for(i=0;i<4;i++){ var tri=pickTriple(i); var d=driverSeq2[i], b=bcrSeq2[i]; var controller=ccr; var leader=""; if(d && DAILY_LEADER_LIST.indexOf(d)>=0 && dailyLeaderAvail.indexOf(d)>=0) leader=d; else if(tri[2] && DAILY_LEADER_LIST.indexOf(tri[2])>=0 && dailyLeaderAvail.indexOf(tri[2])>=0) leader=tri[2]; var row2=[fmt(addDays(start,i)), d, tri[2], tri[1], tri[0], b, controller, leader]; var tr2=document.createElement("tr"); for(var c2=0;c2<row2.length;c2++){ var td2=document.createElement("td"); td2.innerText=row2[c2]; tr2.appendChild(td2);} tb2.appendChild(tr2); }
+    title.innerText="NIGHT 排班"; title.style.display="block"; container.appendChild(tbl2); makeEditable(tbl2, heads2);
+  }
 
-    window.addEventListener("DOMContentLoaded", ()=>{ 
-      mkCheckboxes("bcrBox", BCR_LIST, "bcr");
-      mkCheckboxes("ehwhmfBox", EH_WH_MF_LIST, "ehwhmf");
-      mkCheckboxes("driverBox", DRIVER_LIST, "driver");
-      mkCheckboxes("controllerBox", CONTROLLER_LIST, "controller");
-      mkCheckboxes("pmLeaderBox", PM_LEADER_LIST, "pmleader");
-      mkCheckboxes("dailyLeaderBox", DAILY_LEADER_LIST, "dailyleader");
-    });
+  CURRENT_OPTIONS = { DRIVER: driverList, EHWHMF: ehwhmfList, BCR: bcrList, PM_LEADER: pmLeaderList, CCR_CONTROLLER: controllerList, DAILY_LEADER: dailyLeaderAvail };
+  document.getElementById("downloadBtn").disabled = false;
+}
 
-    document.getElementById("generateBtn").addEventListener("click", generateRoster);
-    document.getElementById("downloadBtn").addEventListener("click", downloadExcel);
-  </script>
+function downloadExcel(){ var wb=XLSX.utils.book_new(); var container=document.getElementById("resultContainer"); var tbl=container.querySelector("table"); if(!tbl){ alert("未有結果可匯出"); return; } var aoa=tableToAoA(tbl); var isDay=(document.getElementById("resultTitle").innerText||'').indexOf("DAY")>=0; var sheet=XLSX.utils.aoa_to_sheet(aoa); XLSX.utils.book_append_sheet(wb, sheet, isDay?"DAY":"NIGHT"); XLSX.writeFile(wb, "APM_duty_roster_one_group.xlsx"); }
+
+(function init(){ mkCheckboxes("bcrBox", BCR_LIST, "bcr"); mkCheckboxes("ehwhmfBox", EH_WH_MF_LIST, "ehwhmf"); mkCheckboxes("driverBox", DRIVER_LIST, "driver"); mkCheckboxes("controllerBox", CONTROLLER_LIST, "controller"); mkCheckboxes("pmLeaderBox", PM_LEADER_LIST, "pmleader"); mkCheckboxes("dailyLeaderBox", DAILY_LEADER_LIST, "dailyleader"); document.getElementById("generateBtn").onclick=generateRoster; document.getElementById("downloadBtn").onclick=downloadExcel; })();
+</script>
 </body>
 </html>
